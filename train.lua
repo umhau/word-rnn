@@ -64,12 +64,12 @@ cmd:option('-checkpoint_dir', 'cv', 'output directory where checkpoints get writ
 cmd:option('-savefile','lstm','filename to autosave the checkpont to. Will be inside checkpoint_dir/')
 cmd:option('-accurate_gpu_timing',0,'set this flag to 1 to get precise timings when using GPU. Might make code bit slower but reports accurate timings.')
 -- GPU/CPU
-cmd:option('-gpuid',0,'which gpu to use. -1 = use CPU')
+cmd:option('-gpuid',-1,'which gpu to use. -1 = use CPU')
 cmd:option('-opencl',0,'use OpenCL (instead of CUDA)')
-cmd:option('-word_level',0,'whether to operate on the word level, instead of character level (0: use chars, 1: use words)')
+cmd:option('-word_level',1,'whether to operate on the word level, instead of character level (0: use chars, 1: use words)')
 cmd:option('-threshold',0,'minimum number of occurences a token must have to be included (ignored if -word_level is 0)')
 cmd:option('-glove',0,'whether or not to use GloVe embeddings')
-cmd:option('-optimizer','rmsprop','which optimizer to use: adam or rmsprop')
+cmd:option('-optimizer','adam','which optimizer to use: adam or rmsprop')
 
 cmd:text()
 
@@ -80,41 +80,8 @@ torch.manualSeed(opt.seed)
 local test_frac = math.max(0, 1 - (opt.train_frac + opt.val_frac))
 local split_sizes = {opt.train_frac, opt.val_frac, test_frac} 
 
--- initialize cunn/cutorch for training on the GPU and fall back to CPU gracefully
-if opt.gpuid >= 0 and opt.opencl == 0 then
-    local ok, cunn = pcall(require, 'cunn')
-    local ok2, cutorch = pcall(require, 'cutorch')
-    if not ok then print('package cunn not found!') end
-    if not ok2 then print('package cutorch not found!') end
-    if ok and ok2 then
-        print('using CUDA on GPU ' .. opt.gpuid .. '...')
-        cutorch.setDevice(opt.gpuid + 1) -- note +1 to make it 0 indexed! sigh lua
-        cutorch.manualSeed(opt.seed)
-    else
-        print('If cutorch and cunn are installed, your CUDA toolkit may be improperly configured.')
-        print('Check your CUDA toolkit installation, rebuild cutorch and cunn, and try again.')
-        print('Falling back on CPU mode')
-        opt.gpuid = -1 -- overwrite user setting
-    end
-end
+opt.gpuid = -1 -- overwrite user setting
 
--- initialize clnn/cltorch for training on the GPU and fall back to CPU gracefully
-if opt.gpuid >= 0 and opt.opencl == 1 then
-    local ok, cunn = pcall(require, 'clnn')
-    local ok2, cutorch = pcall(require, 'cltorch')
-    if not ok then print('package clnn not found!') end
-    if not ok2 then print('package cltorch not found!') end
-    if ok and ok2 then
-        print('using OpenCL on GPU ' .. opt.gpuid .. '...')
-        cltorch.setDevice(opt.gpuid + 1) -- note +1 to make it 0 indexed! sigh lua
-        torch.manualSeed(opt.seed)
-    else
-        print('If cltorch and clnn are installed, your OpenCL driver may be improperly configured.')
-        print('Check your OpenCL driver installation, check output of clinfo command, and try again.')
-        print('Falling back on CPU mode')
-        opt.gpuid = -1 -- overwrite user setting
-    end
-end
 
 require 'util.SharedDropout'
 
